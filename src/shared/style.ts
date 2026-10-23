@@ -5,15 +5,15 @@ export const BASE_STYLE = `
   * { box-sizing: border-box; }
   .num { font-variant-numeric: tabular-nums; }
   .muted { color: var(--oc-muted); }
-  .chart { position: relative; width: 100%; overflow: hidden; }
+  .chart { position: relative; width: 100%; }
   .chart svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
   .chart-grid { stroke: var(--oc-border); stroke-width: 1; vector-effect: non-scaling-stroke; opacity: .5; fill: none; }
   .chart-cursor, .chart-dot, .chart-tip { position: absolute; pointer-events: none; opacity: 0; }
   .chart.hovering .chart-cursor, .chart.hovering .chart-dot, .chart.hovering .chart-tip { opacity: 1; }
   .chart-cursor { top: 0; bottom: 0; left: 0; width: 1px; background: var(--oc-border); }
   .chart-dot { top: -3px; left: -3px; width: 6px; height: 6px; border-radius: 50%; box-shadow: 0 0 0 2px color-mix(in srgb, var(--oc-fg) 4%, var(--oc-bg)); }
-  /* Floats like the app's dropdowns: lit top edge and hairline rings instead of a border. The chart clips,
-     so only the rings and the tightest shadow. */
+  /* Floats like the app's dropdowns: lit top edge and hairline rings instead of a border. The plot is
+     clipped by its own SVG, so the label can cross the chart's edge without being cut off. */
   .chart-tip { top: 2px; padding: 1px 6px; border-radius: 4px; white-space: nowrap; font-size: 11px;
     background: var(--oc-elevated); color: var(--oc-elevated-fg); font-variant-numeric: tabular-nums;
     box-shadow: inset 0 1px 0 0 rgb(255 255 255 / .8), inset 0 0 0 1px rgb(0 0 0 / .04), 0 0 0 1px rgb(0 0 0 / .1), 0 1px 2px -.5px rgb(0 0 0 / .08); }
