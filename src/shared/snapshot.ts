@@ -1,8 +1,8 @@
 // The one answer the service gives: `GET /snapshot`. The panel and the Work
 // Status section both read it, so the shape lives here and nowhere else.
 
-/** Points of history the service keeps: three minutes at one sample every two seconds. */
-export const HISTORY_POINTS = 90;
+/** Points of history the service keeps: three minutes at one sample every five seconds. */
+export const HISTORY_POINTS = 36;
 
 /**
  * CPU of a process, a group or a dev server counts 100 per core, as Activity

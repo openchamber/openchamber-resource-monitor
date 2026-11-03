@@ -45,7 +45,7 @@ export const PANEL_STYLE = `
   .sub { color: var(--oc-muted); font-size: 11px; }
   /* A track inside a card is the next tone step; segments part by a 1px gap. */
   .stack { display: flex; gap: 1px; height: 8px; border-radius: 4px; overflow: hidden; background: color-mix(in srgb, var(--oc-fg) 8%, transparent); }
-  .stack > span { height: 100%; transition: width .4s ease; }
+  .stack > span { height: 100%; }
   .legend { display: flex; flex-direction: column; gap: 4px; }
   .legend-row { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto auto; align-items: center; gap: 8px; }
   .legend-row .swatch { width: 8px; height: 8px; border-radius: 2px; }
@@ -124,7 +124,7 @@ export const STATUS_STYLE = `
   .line .what { color: var(--oc-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .line .value { text-align: right; white-space: nowrap; }
   .meter { position: relative; height: 4px; border-radius: 2px; background: color-mix(in srgb, var(--oc-fg) 8%, transparent); overflow: hidden; }
-  .meter > span { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 2px; transition: width .4s ease; }
+  .meter > span { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 2px; }
   .ports { display: flex; flex-wrap: wrap; gap: 4px; min-width: 0; }
   .note { color: var(--oc-muted); }
   .note.error { color: var(--oc-error-text, var(--oc-fg)); }

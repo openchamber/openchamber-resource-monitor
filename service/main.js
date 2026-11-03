@@ -326,11 +326,11 @@ var planStop = (members, commands, target) => {
 };
 
 // src/shared/snapshot.ts
-var HISTORY_POINTS = 90;
+var HISTORY_POINTS = 36;
 
 // src/service/sampler.ts
-var SAMPLE_INTERVAL_MS = 2000;
-var PORTS_EVERY = 2;
+var SAMPLE_INTERVAL_MS = 5000;
+var PORTS_REFRESH_MS = 60000;
 var cpuTimes = () => os.cpus().map(({ times }) => ({
   idle: times.idle,
   total: times.user + times.nice + times.sys + times.idle + times.irq
@@ -352,7 +352,8 @@ class Sampler {
   commandCache = new Map;
   portsCache = new Map;
   portsWarning = false;
-  samples = 0;
+  portsPids = new Set;
+  portsAt = null;
   lastView = null;
   history = { system: { cpu: [], memory: [] }, app: { cpu: [], memory: [] } };
   constructor(source, rootPid, selfPid) {
@@ -364,7 +365,10 @@ class Sampler {
     this.previousCores = null;
     this.previousCpu.clear();
     this.previousAt = 0;
-    this.samples = 0;
+    this.portsPids.clear();
+    this.portsAt = null;
+    this.portsCache.clear();
+    this.portsWarning = false;
     this.lastView = null;
     this.history = { system: { cpu: [], memory: [] }, app: { cpu: [], memory: [] } };
   }
@@ -423,10 +427,14 @@ class Sampler {
     return new Map(pids.map((pid) => [pid, this.commandCache.get(pid)?.command ?? ""]));
   }
   async portsFor(pids) {
-    if (this.samples % PORTS_EVERY !== 1 && this.samples > 1)
+    const at = Date.now();
+    const changed = pids.length !== this.portsPids.size || pids.some((pid) => !this.portsPids.has(pid));
+    if (!changed && this.portsAt !== null && at - this.portsAt < PORTS_REFRESH_MS)
       return this.portsCache;
+    this.portsPids = new Set(pids);
+    this.portsAt = at;
     try {
-      this.portsCache = await this.source.ports(pids);
+      this.portsCache = pids.length > 0 ? await this.source.ports(pids) : new Map;
       this.portsWarning = false;
     } catch {
       this.portsCache = new Map;
@@ -448,7 +456,6 @@ class Sampler {
     return { stopped: pids.length - survived.length, survived: survived.length };
   }
   async sample() {
-    this.samples += 1;
     const warnings = [];
     const cores = Math.max(1, os.cpus().length);
     const at = Date.now();
@@ -472,7 +479,7 @@ class Sampler {
       const outsideCandidates = processes.filter((process2) => !members.has(process2.pid) && isOpenCodeName(process2.name));
       const detailPids = [...members.keys(), ...outsideCandidates.map((process2) => process2.pid)];
       const commands = await this.commandsFor(processes, detailPids);
-      const ports = members.size > 0 ? await this.portsFor([...members.keys()]) : new Map;
+      const ports = await this.portsFor([...members.keys()]);
       if (this.portsWarning)
         warnings.push("ports-unavailable");
       view = buildTreeView({ members, processes, rootPid: this.rootPid, selfPid: this.selfPid, cpu, commands, ports });

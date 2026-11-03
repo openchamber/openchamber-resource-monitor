@@ -34,7 +34,7 @@ When the connected OpenChamber runs on another machine, the monitor shows that m
 | Linux | `/proc` | `/proc/net/tcp` and each process's sockets | `/proc/meminfo` |
 | Windows | one PowerShell kept running (`Get-CimInstance Win32_Process`) | `netstat -ano` | Node's `os` |
 
-Sampling runs every 2 seconds while the panel or the Work Status section is on screen. Twenty seconds after the last view it stops, and so does the PowerShell helper on Windows.
+Sampling runs every 5 seconds while the panel or the Work Status section is on screen. Listening ports refresh when the watched process IDs change and every 60 seconds while they stay the same. Stop checks listening ports again before ending an agent's job. Twenty seconds after the last view sampling stops, and so does the PowerShell helper on Windows.
 
 ## Build
 

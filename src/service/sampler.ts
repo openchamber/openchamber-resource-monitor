@@ -9,9 +9,9 @@ import { planStop, type StopTarget } from './stop.ts';
 import { buildTreeView, collectTree, isOpenCodeName, type TreeView } from './tree.ts';
 import { HISTORY_POINTS, type Percent, type Snapshot, type SystemStats, type Warning } from '../shared/snapshot.ts';
 
-export const SAMPLE_INTERVAL_MS = 2_000;
-/** Listening ports change rarely and cost the most to read, so every other sample. */
-const PORTS_EVERY = 2;
+export const SAMPLE_INTERVAL_MS = 5_000;
+/** Refresh unchanged processes too: a running server can start listening later. */
+const PORTS_REFRESH_MS = 60_000;
 
 interface CpuTimes { idle: number; total: number }
 
@@ -34,7 +34,8 @@ export class Sampler {
   private commandCache = new Map<number, { name: string; command: string }>();
   private portsCache = new Map<number, number[]>();
   private portsWarning = false;
-  private samples = 0;
+  private portsPids = new Set<number>();
+  private portsAt: number | null = null;
   /** The last tree read that worked, shown again while the process list can't be read. */
   private lastView: TreeView | null = null;
   private history = { system: { cpu: [] as number[], memory: [] as number[] }, app: { cpu: [] as number[], memory: [] as number[] } };
@@ -50,7 +51,10 @@ export class Sampler {
     this.previousCores = null;
     this.previousCpu.clear();
     this.previousAt = 0;
-    this.samples = 0;
+    this.portsPids.clear();
+    this.portsAt = null;
+    this.portsCache.clear();
+    this.portsWarning = false;
     this.lastView = null;
     this.history = { system: { cpu: [], memory: [] }, app: { cpu: [], memory: [] } };
   }
@@ -114,9 +118,13 @@ export class Sampler {
   }
 
   private async portsFor(pids: readonly number[]): Promise<Map<number, number[]>> {
-    if (this.samples % PORTS_EVERY !== 1 && this.samples > 1) return this.portsCache;
+    const at = Date.now();
+    const changed = pids.length !== this.portsPids.size || pids.some((pid) => !this.portsPids.has(pid));
+    if (!changed && this.portsAt !== null && at - this.portsAt < PORTS_REFRESH_MS) return this.portsCache;
+    this.portsPids = new Set(pids);
+    this.portsAt = at;
     try {
-      this.portsCache = await this.source.ports(pids);
+      this.portsCache = pids.length > 0 ? await this.source.ports(pids) : new Map();
       this.portsWarning = false;
     } catch {
       this.portsCache = new Map();
@@ -142,7 +150,6 @@ export class Sampler {
   }
 
   async sample(): Promise<Snapshot> {
-    this.samples += 1;
     const warnings: Warning[] = [];
     const cores = Math.max(1, os.cpus().length);
     const at = Date.now();
@@ -169,7 +176,7 @@ export class Sampler {
       const outsideCandidates = processes.filter((process) => !members.has(process.pid) && isOpenCodeName(process.name));
       const detailPids = [...members.keys(), ...outsideCandidates.map((process) => process.pid)];
       const commands = await this.commandsFor(processes, detailPids);
-      const ports = members.size > 0 ? await this.portsFor([...members.keys()]) : new Map<number, number[]>();
+      const ports = await this.portsFor([...members.keys()]);
       if (this.portsWarning) warnings.push('ports-unavailable');
       view = buildTreeView({ members, processes, rootPid: this.rootPid, selfPid: this.selfPid, cpu, commands, ports });
       this.lastView = view;

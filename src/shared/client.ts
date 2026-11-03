@@ -5,7 +5,7 @@ import { HostRequestError, type HostClient } from '@openchamber/sdk';
 import { el } from './dom.ts';
 import type { Snapshot } from './snapshot.ts';
 
-export const POLL_MS = 2_000;
+export const POLL_MS = 5_000;
 
 export type PollFailure = 'needs-approval' | 'paused' | 'service-failed' | 'unreachable' | 'bad-answer';
 
