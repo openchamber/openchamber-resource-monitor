@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 
 import type { ProcessRow } from './snapshot.ts';
-import { commandArguments, formatBytes, formatPercent, jobDetail, processLabel } from './format.ts';
+import { commandArguments, formatBytes, formatPercent, jobDetail, processCpuPercent, processLabel, setLocale } from './format.ts';
 
 describe('commandArguments', () => {
   test('drops the executable path the row already names', () => {
@@ -58,9 +58,34 @@ describe('formatting', () => {
     expect(formatBytes(340 * 1024 * 1024)).toBe('340 MB');
     expect(formatBytes(12.94 * 1024 ** 3)).toBe('12.9 GB');
     expect(formatPercent(null)).toBe('–');
-    expect(formatPercent(0.04)).toBe('<0.1%');
+    expect(formatPercent(0.004)).toBe('<0.01%');
+    expect(formatPercent(0.04)).toBe('0.04%');
+    expect(formatPercent(0)).toBe('0.0%');
     expect(formatPercent(4.25)).toBe('4.3%');
     expect(formatPercent(44.4)).toBe('44%');
     expect(formatPercent(250)).toBe('250%');
+  });
+
+  test('per-core CPU becomes a percentage of the whole machine', () => {
+    expect(processCpuPercent(350, 16)).toBe(21.875);
+    for (const [raw, cores, displayed] of [
+      [null, 16, '–'], [0, 16, '0.0%'], [0.1, 16, '<0.01%'], [0.4, 16, '0.03%'],
+      [35, 16, '2.2%'], [350, 16, '22%'], [1600, 16, '100%'],
+      [35, 1, '35%'], [35, 0, '35%'],
+    ] as const) {
+      expect(formatPercent(processCpuPercent(raw, cores))).toBe(displayed);
+    }
+  });
+
+  test('converted CPU keeps the established percent precision and locale', () => {
+    try {
+      setLocale('ru');
+      expect(formatPercent(processCpuPercent(35, 16))).toBe('2,2%');
+      expect(formatPercent(processCpuPercent(350, 16))).toBe('22%');
+      setLocale('en_US');
+      expect(formatPercent(processCpuPercent(35, 16))).toBe('2.2%');
+    } finally {
+      setLocale('en');
+    }
   });
 });

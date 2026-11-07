@@ -13,6 +13,7 @@ import {
   jobDetail,
   platformName,
   processLabel,
+  processCpuPercent,
   setLocale,
 } from '../shared/format.ts';
 import { el, reconcile, setText, type Keyed } from '../shared/dom.ts';
@@ -68,7 +69,11 @@ const appCard = el('div', 'card', '', [
 ]);
 
 // Every row is name · action · CPU · memory, so Stop sits centred beside the numbers.
-const columns = (): HTMLElement => el('div', 'cols', '', [el('span'), el('span'), el('span', 'cell', 'CPU'), el('span', 'cell', 'Memory')]);
+const columns = (): HTMLElement => {
+  const cpuHead = el('span', 'cell', 'CPU');
+  cpuHead.title = 'CPU as a percentage of total machine capacity, on the same scale as the CPU card.';
+  return el('div', 'cols', '', [el('span'), el('span'), cpuHead, el('span', 'cell', 'Memory')]);
+};
 const actionCell = (button?: HTMLElement): HTMLElement => el('span', 'action', '', button ? [button] : []);
 
 const serversCount = el('span', 'count');
@@ -94,7 +99,7 @@ const outsideSection = el('section', 'section', '', [
 ]);
 outsideSection.hidden = true;
 
-const footnote = el('div', 'footnote', 'Process CPU counts 100% per core, as Activity Monitor does; the CPU card above is the whole machine. Memory is resident memory: pages a process shares with others count in each of them.');
+const footnote = el('div', 'footnote', 'CPU everywhere is a percentage of total machine capacity: all logical cores together are 100%. Memory is resident memory: pages a process shares with others count in each of them.');
 
 root.append(banner, head, grid, appCard, serversSection, processesSection, outsideSection, footnote);
 
@@ -151,17 +156,19 @@ const stopButton = (label: string, question: string, target: StopRequest): HTMLB
 type Role = 'root' | 'self' | 'other';
 
 let rootPid = 0;
+let logicalCores = 1;
 const roleOf = (row: ProcessRow): Role => (row.pid === rootPid ? 'root' : row.label === 'Resource Monitor' && row.ppid === rootPid ? 'self' : 'other');
 
-/** A row's CPU and memory, updated in place. */
-const numberCells = () => {
+/** A row's CPU and memory, updated in place; only raw per-core inputs need conversion. */
+const numberCells = (cpuScale: 'share' | 'per-core') => {
   const cpu = el('span');
   const memory = el('span', 'cell num');
   const set = (cpuValue: number | null, memoryValue: number): void => {
+    const share = cpuScale === 'per-core' ? processCpuPercent(cpuValue, logicalCores) : cpuValue;
     // Below one percent of a core a number is noise; it stays readable but recedes.
-    const className = cpuValue !== null && cpuValue >= 1 ? 'cell num' : 'cell num quiet';
+    const className = share !== null && share * logicalCores >= 1 ? 'cell num' : 'cell num quiet';
     if (cpu.className !== className) cpu.className = className;
-    setText(cpu, formatPercent(cpuValue));
+    setText(cpu, formatPercent(share));
     setText(memory, formatBytes(memoryValue));
   };
   return { cpu, memory, set };
@@ -185,7 +192,7 @@ const processKey = (process: ProcessRow, role: Role): string => {
 
 const processRow = (process: ProcessRow, role: Role, className = 'row'): Keyed<ProcessRow> => {
   const { title, detail } = processLabel(process, role);
-  const cells = numberCells();
+  const cells = numberCells('per-core');
   cells.set(process.cpu, process.memory);
   const element = el('div', className, '', [textBlock(title, detail).element, actionCell(), cells.cpu, cells.memory]);
   element.title = `${process.name} · pid ${process.pid}${process.command ? `\n${process.command}` : ''}`;
@@ -205,7 +212,7 @@ const memberRow = (member: ProcessRow): Keyed<ProcessRow> => processRow(member, 
 const jobRow = (job: Job, stoppable: boolean): Keyed<Job> => {
   const foldable = isFoldable(job);
   const stop = stoppable ? stopButton('Stop', `Stop ${job.title}?`, { kind: 'job', pid: job.pid, name: job.name }) : undefined;
-  const cells = numberCells();
+  const cells = numberCells('per-core');
   const text = textBlock(job.title, jobDetail(job));
   const line = el('div', foldable ? 'row job foldable' : 'row job', '', [text.element, actionCell(stop), cells.cpu, cells.memory]);
   line.title = job.command || job.title;
@@ -309,7 +316,7 @@ const groupBlock = (group: ProcessGroup): Keyed<ProcessGroup> => {
   const stopAll = hasStopAll(group) ? stopButton('Stop all', 'Stop everything running in the terminal?', { kind: 'terminals' }) : undefined;
   const count = el('span', 'count');
   const name = el('span', 'gname', '', [dot, el('b', '', GROUP_LABELS[group.id]), count]);
-  const cells = numberCells();
+  const cells = numberCells('share');
   const header = el('div', 'group-head foldable', '', [name, actionCell(stopAll), cells.cpu, cells.memory]);
   header.tabIndex = 0;
   header.setAttribute('role', 'button');
@@ -358,7 +365,7 @@ const serverRow = (server: DevServer): Keyed<DevServer> => {
   const who = el('div', 'who', '', [title]);
   const detail = server.job?.title ?? '';
   if (detail) who.append(el('span', 'pdetail', detail));
-  const cells = numberCells();
+  const cells = numberCells('per-core');
   cells.set(server.cpu, server.memory);
   const row = el('div', 'row server', '', [who, actionCell(stop), cells.cpu, cells.memory]);
   row.title = `pid ${server.pid}${server.command ? `\n${server.command}` : ''}`;
@@ -436,6 +443,7 @@ function render(snapshot: Snapshot): void {
   lastSnapshot = snapshot;
   const { system, app } = snapshot;
   rootPid = app.rootPid;
+  logicalCores = system.cores;
 
   setText(hostName, system.hostname);
   setText(hostMeta, [platformName(system.platform), system.arch, system.cpuModel, `up ${formatUptime(system.uptimeSeconds)}`].filter(Boolean).join(' · '));
@@ -454,6 +462,7 @@ function render(snapshot: Snapshot): void {
 
   setText(appValue, formatBytes(app.memory));
   setText(appCpuValue, `${formatPercent(app.cpu)} CPU`);
+  appCpuValue.title = `Share of all ${system.cores} cores, the same scale as the CPU card`;
   appChart.update(snapshot.history.app.memory, Math.max(app.memory, ...snapshot.history.app.memory) * 1.15);
   const parts = app.groups.filter((group) => group.memory > 0).map((group): StackPart => ({ id: group.id, value: group.memory, total: app.memory }));
   reconcile(appStack, parts, (part) => part.id, stackPart, stackParts);

@@ -54,6 +54,7 @@ var NOTABLE_CPU = 1;
 var NOTABLE_MEMORY = 40 * 1024 * 1024;
 var JOB_MEMBERS_MAX = 8;
 var COMMAND_MAX = 400;
+var cpuShare = (cpu, cores) => Math.min(100, Math.max(0, cpu / (cores > 0 ? cores : 1)));
 var normalizedName = (name) => name.replace(/^-/, "").replace(/\.exe$/i, "").toLowerCase();
 var isOpenCodeName = (name) => /^opencode(-cli)?$/.test(normalizedName(name));
 var SHELLS = new Set(["zsh", "bash", "sh", "fish", "dash", "ksh", "tcsh", "csh", "nu", "pwsh", "powershell", "cmd", "elvish", "xonsh"]);
@@ -190,7 +191,7 @@ var describeProcess = (name, command) => {
 };
 var trimCommand = (command) => command.length > COMMAND_MAX ? `${command.slice(0, COMMAND_MAX - 1)}…` : command;
 var GROUP_ORDER = ["app", "opencode", "terminals"];
-var buildTreeView = ({ members, processes, rootPid, selfPid, cpu, commands, ports }) => {
+var buildTreeView = ({ members, processes, rootPid, selfPid, cpu, cores, commands, ports }) => {
   const groupOf = groupResolver(members, commands);
   const children = childrenOf(processes);
   const byPid = new Map(processes.map((process2) => [process2.pid, process2]));
@@ -257,7 +258,7 @@ var buildTreeView = ({ members, processes, rootPid, selfPid, cpu, commands, port
     const jobs = inGroup.filter((member) => jobTops.has(member.process.pid)).map(job).sort((a, b) => b.memory - a.memory);
     groups.push({
       id,
-      cpu: inGroup.reduce((sum, member) => sum + (cpu.get(member.process.pid) ?? 0), 0),
+      cpu: cpuShare(inGroup.reduce((sum, member) => sum + (cpu.get(member.process.pid) ?? 0), 0), cores),
       memory: inGroup.reduce((sum, member) => sum + member.process.memory, 0),
       count: inGroup.length,
       processes: own.slice(0, GROUP_PROCESS_LIMIT),
@@ -289,7 +290,7 @@ var buildTreeView = ({ members, processes, rootPid, selfPid, cpu, commands, port
   const total = subtree(rootPid, true);
   return {
     rootName: members.get(rootPid)?.process.name.replace(/\.exe$/i, "") ?? "OpenChamber",
-    cpu: total.cpu,
+    cpu: cpuShare(total.cpu, cores),
     memory: total.memory,
     groups,
     servers,
@@ -482,7 +483,7 @@ class Sampler {
       const ports = await this.portsFor([...members.keys()]);
       if (this.portsWarning)
         warnings.push("ports-unavailable");
-      view = buildTreeView({ members, processes, rootPid: this.rootPid, selfPid: this.selfPid, cpu, commands, ports });
+      view = buildTreeView({ members, processes, rootPid: this.rootPid, selfPid: this.selfPid, cpu, cores, commands, ports });
       this.lastView = view;
     } else {
       view = this.lastView ?? { rootName: "OpenChamber", cpu: 0, memory: 0, groups: [], servers: [], outside: [] };
@@ -976,9 +977,9 @@ var formatBytes = (bytes) => {
 var formatPercent = (value) => {
   if (value === null)
     return "–";
-  if (value > 0 && value < 0.1)
-    return "<0.1%";
-  return `${number(value, value < 10 ? 1 : 0)}%`;
+  if (value > 0 && value < 0.01)
+    return "<0.01%";
+  return `${number(value, value > 0 && value < 1 ? 2 : value < 10 ? 1 : 0)}%`;
 };
 
 // src/service/status-view.ts
@@ -1006,7 +1007,7 @@ var statusView = (snapshot, locale) => {
         step: snapshot.intervalMs / 1000
       },
       value: `${formatBytes(app.memory)} · ${formatPercent(app.cpu)}`,
-      tooltip: "Memory and CPU of OpenChamber, OpenCode, and everything they started. CPU counts 100% per core."
+      tooltip: "Memory and CPU of OpenChamber, OpenCode, and everything they started. CPU is a percentage of total machine capacity: all logical cores together are 100%, on the same scale as the CPU line."
     });
   }
   rows.push({

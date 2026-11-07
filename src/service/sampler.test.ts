@@ -142,6 +142,8 @@ test('a failed process read keeps the last OpenChamber numbers instead of zeros'
   await new Promise((resolve) => setTimeout(resolve, 20));
   const good = await sampler.sample();
   expect(good.app.memory).toBe(500 * MB);
+  expect(good.app.cpu).toBeLessThanOrEqual(100);
+  expect(good.app.groups.every((group) => group.cpu >= 0 && group.cpu <= 100)).toBe(true);
   const appPoints = good.history.app.memory.length;
 
   fail = true;
