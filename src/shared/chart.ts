@@ -79,7 +79,7 @@ export const mountChart = (options: ChartOptions): ChartHandle => {
     dot.style.transform = `translate(${x}px, ${y}px)`;
     const ago = (values.length - 1 - hoverIndex) * options.intervalSeconds;
     tip.textContent = `${options.format(value)} · ${ago === 0 ? 'now' : `${ago} s ago`}`;
-    // Keep the label inside the chart: it flips to the left near the right edge.
+    // Past the midpoint the label flips left; it may cross the chart's edge.
     const flip = x > box.width / 2;
     tip.style.left = flip ? '' : `${x + 8}px`;
     tip.style.right = flip ? `${box.width - x + 8}px` : '';
