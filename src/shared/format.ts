@@ -31,9 +31,13 @@ export const formatBytes = (bytes: number): string => {
 
 export const formatPercent = (value: number | null): string => {
   if (value === null) return '–';
-  if (value > 0 && value < 0.1) return '<0.1%';
-  return `${number(value, value < 10 ? 1 : 0)}%`;
+  if (value > 0 && value < 0.01) return '<0.01%';
+  return `${number(value, value > 0 && value < 1 ? 2 : value < 10 ? 1 : 0)}%`;
 };
+
+/** Convert a raw 100-per-core reading to the machine-wide percentage used in the UI. */
+export const processCpuPercent = (value: number | null, cores: number): number | null =>
+  value === null ? null : value / Math.max(1, cores);
 
 export const formatUptime = (seconds: number): string => {
   const days = Math.floor(seconds / 86_400);

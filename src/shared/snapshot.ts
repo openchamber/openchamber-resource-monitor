@@ -5,9 +5,16 @@
 export const HISTORY_POINTS = 36;
 
 /**
- * CPU of a process, a group or a dev server counts 100 per core, as Activity
- * Monitor and `top` do, so 250 is two and a half cores busy. Only the
- * machine's own CPU (`SystemStats.cpu`) is a share of all cores, 0..100.
+ * CPU comes in two scales, and which one a field uses is part of its contract.
+ *
+ * Aggregates are a share of all logical cores, 0..100, with the same
+ * denominator as the machine's own CPU (`SystemStats.cpu`): `app.cpu` and
+ * `ProcessGroup.cpu`.
+ *
+ * Everything below that (`ProcessRow`, `Job`, `DevServer`) counts 100 per
+ * core, as Activity Monitor and `top` do. The UI divides these raw readings
+ * by `SystemStats.cores` to display percentages of total machine capacity,
+ * leaving the already-normalized aggregates unchanged.
  */
 export type Percent = number;
 

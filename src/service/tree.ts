@@ -9,6 +9,13 @@ const NOTABLE_MEMORY = 40 * 1024 * 1024;
 const JOB_MEMBERS_MAX = 8;
 const COMMAND_MAX = 400;
 
+/**
+ * CPU counted 100 per core, as a share of all cores (0..100), the scale the
+ * machine's own CPU uses. Only aggregates go through this; the readings
+ * themselves stay per core. Clamped like the machine's CPU.
+ */
+export const cpuShare = (cpu: number, cores: number): Percent => Math.min(100, Math.max(0, cpu / (cores > 0 ? cores : 1)));
+
 export interface TreeMember {
   process: RawProcess;
   /** 0 for the root, 1 for its children, and so on. */
@@ -201,7 +208,10 @@ interface BuildInput {
   processes: readonly RawProcess[];
   rootPid: number;
   selfPid: number;
+  /** Per process, 100 per core. */
   cpu: ReadonlyMap<number, Percent | null>;
+  /** Logical cores, the denominator the machine's own CPU uses; aggregates are shares of it. */
+  cores: number;
   commands: ReadonlyMap<number, string>;
   ports: ReadonlyMap<number, number[]>;
 }
@@ -217,7 +227,7 @@ export interface TreeView {
 
 const GROUP_ORDER: GroupId[] = ['app', 'opencode', 'terminals'];
 
-export const buildTreeView = ({ members, processes, rootPid, selfPid, cpu, commands, ports }: BuildInput): TreeView => {
+export const buildTreeView = ({ members, processes, rootPid, selfPid, cpu, cores, commands, ports }: BuildInput): TreeView => {
   const groupOf = groupResolver(members, commands);
   const children = childrenOf(processes);
   const byPid = new Map(processes.map((process) => [process.pid, process]));
@@ -295,7 +305,7 @@ export const buildTreeView = ({ members, processes, rootPid, selfPid, cpu, comma
       .sort((a, b) => b.memory - a.memory);
     groups.push({
       id,
-      cpu: inGroup.reduce((sum, member) => sum + (cpu.get(member.process.pid) ?? 0), 0),
+      cpu: cpuShare(inGroup.reduce((sum, member) => sum + (cpu.get(member.process.pid) ?? 0), 0), cores),
       memory: inGroup.reduce((sum, member) => sum + member.process.memory, 0),
       count: inGroup.length,
       processes: own.slice(0, GROUP_PROCESS_LIMIT),
@@ -340,7 +350,7 @@ export const buildTreeView = ({ members, processes, rootPid, selfPid, cpu, comma
   const total = subtree(rootPid, true);
   return {
     rootName: members.get(rootPid)?.process.name.replace(/\.exe$/i, '') ?? 'OpenChamber',
-    cpu: total.cpu,
+    cpu: cpuShare(total.cpu, cores),
     memory: total.memory,
     groups,
     servers,

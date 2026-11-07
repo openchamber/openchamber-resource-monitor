@@ -47,7 +47,7 @@ export const statusView = (snapshot: Snapshot, locale: string): StatusView => {
         step: snapshot.intervalMs / 1000,
       },
       value: `${formatBytes(app.memory)} · ${formatPercent(app.cpu)}`,
-      tooltip: 'Memory and CPU of OpenChamber, OpenCode, and everything they started. CPU counts 100% per core.',
+      tooltip: 'Memory and CPU of OpenChamber, OpenCode, and everything they started. CPU is a percentage of total machine capacity: all logical cores together are 100%, on the same scale as the CPU line.',
     });
   }
   rows.push({

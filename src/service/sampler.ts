@@ -178,7 +178,7 @@ export class Sampler {
       const commands = await this.commandsFor(processes, detailPids);
       const ports = await this.portsFor([...members.keys()]);
       if (this.portsWarning) warnings.push('ports-unavailable');
-      view = buildTreeView({ members, processes, rootPid: this.rootPid, selfPid: this.selfPid, cpu, commands, ports });
+      view = buildTreeView({ members, processes, rootPid: this.rootPid, selfPid: this.selfPid, cpu, cores, commands, ports });
       this.lastView = view;
     } else {
       // A failed read is not "OpenChamber uses nothing": keep the last view and

@@ -26,7 +26,7 @@ const meter = (color: string) => {
 
 const appChart = mountChart({ color: COLORS.app, height: 18, capacity: HISTORY_POINTS, format: formatBytes, intervalSeconds: POLL_MS / 1000 });
 const appValue = el('span', 'value num', '–');
-appValue.title = 'Memory and CPU of OpenChamber, OpenCode, and everything they started. CPU counts 100% per core.';
+appValue.title = 'Memory and CPU of OpenChamber, OpenCode, and everything they started. CPU is a percentage of total machine capacity: all logical cores together are 100%, on the same scale as the CPU line.';
 const cpuMeter = meter(COLORS.cpu);
 const cpuValue = el('span', 'value num', '–');
 const memoryMeter = meter(COLORS.memory);
