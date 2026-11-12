@@ -1,6 +1,6 @@
 {
   "name": "openchamber-resource-monitor",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "CPU and memory of your machine, of OpenChamber and OpenCode with everything they started, and of the dev servers running under them",
   "private": true,
   "type": "module",
@@ -15,7 +15,8 @@
         "id": "resource-monitor",
         "name": "Resource Monitor",
         "icon": "pulse",
-        "entry": "panel/index.html"
+        "entry": "panel/index.html",
+        "mobile": true
       },
       "statusSection": {
         "entry": "status/index.html",

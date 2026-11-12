@@ -28,6 +28,20 @@ style.textContent = BASE_STYLE + PANEL_STYLE;
 document.head.append(style);
 
 const INTERVAL_SECONDS = POLL_MS / 1000;
+/**
+ * Whether the next click on `target` comes from a finger or a pen, judged by
+ * the pointer that pressed it rather than the device's primary pointer, so a
+ * mouse on a touch laptop keeps the desktop behaviour. A keyboard click is not.
+ */
+const touchClicks = (target: HTMLElement): (() => boolean) => {
+  let pointerType = '';
+  target.addEventListener('pointerdown', (event) => { pointerType = event.pointerType; });
+  return () => {
+    const touch = pointerType === 'touch' || pointerType === 'pen';
+    pointerType = '';
+    return touch;
+  };
+};
 
 // ----- Skeleton, built once -----
 
@@ -116,20 +130,26 @@ const stopButton = (label: string, question: string, target: StopRequest): HTMLB
   button.type = 'button';
   let armed = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  const byTouch = touchClicks(button);
   const disarm = (): void => {
     armed = false;
     button.classList.remove('armed');
+    button.removeAttribute('aria-label');
     button.textContent = label;
   };
   button.addEventListener('click', (event) => {
     // Inside a summary or a clickable row, the click is the button's alone.
     event.preventDefault();
     event.stopPropagation();
+    const touch = byTouch();
     if (button.disabled) return;
     if (!armed) {
       armed = true;
       button.classList.add('armed');
-      button.textContent = question;
+      // Tapped on a phone, the row beside it already names the job, and the
+      // full question would squeeze that name into a sliver.
+      button.textContent = touch ? `${label}?` : question;
+      button.setAttribute('aria-label', question);
       clearTimeout(timer);
       timer = setTimeout(disarm, 4_000);
       return;
@@ -185,6 +205,19 @@ const textBlock = (title: string, detail: string) => {
   return { element: el('div', 'who', '', [titleLine, detailLine]), setDetail };
 };
 
+// What a mouse reads in a row's tooltip (pid, the exact command line), a
+// finger gets by tapping the row: the text opens across the row, under it.
+const revealOnTap = (row: HTMLElement, text: string, toggles = true): void => {
+  row.title = text;
+  row.append(el('span', 'pextra', text));
+  if (!toggles) return;
+  const byTouch = touchClicks(row);
+  row.addEventListener('click', () => {
+    if (!byTouch()) return;
+    row.classList.toggle('revealed');
+  });
+};
+
 const processKey = (process: ProcessRow, role: Role): string => {
   const { title, detail } = processLabel(process, role);
   return [process.pid, role, title, detail, process.name, process.command].join('\u0000');
@@ -194,8 +227,9 @@ const processRow = (process: ProcessRow, role: Role, className = 'row'): Keyed<P
   const { title, detail } = processLabel(process, role);
   const cells = numberCells('per-core');
   cells.set(process.cpu, process.memory);
-  const element = el('div', className, '', [textBlock(title, detail).element, actionCell(), cells.cpu, cells.memory]);
-  element.title = `${process.name} · pid ${process.pid}${process.command ? `\n${process.command}` : ''}`;
+  const text = textBlock(title, detail);
+  const element = el('div', className, '', [text.element, actionCell(), cells.cpu, cells.memory]);
+  revealOnTap(element, `${process.name} · pid ${process.pid}${process.command ? `\n${process.command}` : ''}`);
   return { element, update: (next) => cells.set(next.cpu, next.memory) };
 };
 
@@ -215,7 +249,8 @@ const jobRow = (job: Job, stoppable: boolean): Keyed<Job> => {
   const cells = numberCells('per-core');
   const text = textBlock(job.title, jobDetail(job));
   const line = el('div', foldable ? 'row job foldable' : 'row job', '', [text.element, actionCell(stop), cells.cpu, cells.memory]);
-  line.title = job.command || job.title;
+  // A foldable job's tap unfolds it, and the command line opens with it.
+  revealOnTap(line, job.command || job.title, !foldable);
   // Unfolded, commands wrap in full instead of ending in an ellipsis.
   const wrapper = el('div', 'job-wrap', '', [line]);
   const more = el('div', 'more');
@@ -368,7 +403,7 @@ const serverRow = (server: DevServer): Keyed<DevServer> => {
   const cells = numberCells('per-core');
   cells.set(server.cpu, server.memory);
   const row = el('div', 'row server', '', [who, actionCell(stop), cells.cpu, cells.memory]);
-  row.title = `pid ${server.pid}${server.command ? `\n${server.command}` : ''}`;
+  revealOnTap(row, `pid ${server.pid}${server.command ? `\n${server.command}` : ''}`);
   return { element: row, update: (next) => cells.set(next.cpu, next.memory) };
 };
 
@@ -492,9 +527,21 @@ const showFailure = (next: PollFailure): void => {
   live.classList.add('stale');
 };
 
+/**
+ * The screen's bottom safe area, which a phone's workspace tab leaves to the
+ * frame. Hosts before phone extensions send no `device`, and the SDK this
+ * builds against has no type for it, so it is read as unknown data.
+ */
+const bottomInset = (context: unknown): number => {
+  const device = (context as { device?: { insets?: { bottom?: unknown } } } | null)?.device;
+  const bottom = device?.insets?.bottom;
+  return typeof bottom === 'number' && Number.isFinite(bottom) && bottom > 0 ? Math.min(bottom, 200) : 0;
+};
+
 let started = false;
 host.onReady((context) => {
   applyHostReady(context, document.documentElement);
+  root.style.setProperty('--safe-bottom', `${bottomInset(context)}px`);
   setLocale(context.locale);
   if (context.features?.deviceStorage === true && !deviceStorage) {
     deviceStorage = true;

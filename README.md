@@ -10,7 +10,7 @@ Stop on a dev server or a terminal job ends that command with everything it star
 
 In OpenChamber, open Settings → Integrations and press Install on the Resource Monitor card, or add this repository's Git URL in Settings → Extensions. Approve the local service when asked: the numbers come from a small process OpenChamber starts next to the panel.
 
-Web and desktop, on macOS, Linux and Windows. The phone app and VS Code don't load extensions.
+Web and desktop, on macOS, Linux and Windows. On the phone, in OpenChamber versions that show extensions there, the panel is a tab of the workspace and the readout sits in the Work status tab; tap a chart to read a point and a row to see its process ID and full command. Older versions show the extension on the desktop as before and nothing on the phone. VS Code doesn't load extensions.
 
 ## How it finds OpenChamber's processes
 

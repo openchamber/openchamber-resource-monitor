@@ -22,6 +22,8 @@ export const BASE_STYLE = `
   .port { display: inline-flex; align-items: center; height: 18px; padding: 0 6px; border: 0; border-radius: 4px; font: 11px var(--oc-mono); cursor: pointer;
     background: color-mix(in srgb, var(--oc-primary) 14%, transparent); color: var(--oc-primary-text, var(--oc-primary)); }
   .port:hover, .port:focus-visible { outline: none; background: color-mix(in srgb, var(--oc-primary) 24%, transparent); }
+  /* A sideways drag on a chart moves its label; a vertical one still scrolls. */
+  @media (pointer: coarse) { .chart { touch-action: pan-y; } }
 `;
 
 export const PANEL_STYLE = `
@@ -114,6 +116,26 @@ export const PANEL_STYLE = `
   .banner.error { background: color-mix(in srgb, var(--oc-error) 10%, transparent);
     color: var(--oc-error-text, var(--oc-fg)); }
   .footnote { color: var(--oc-muted); font-size: 11px; padding: 0 2px; }
+  /* A tooltip's text, shown in the row after a tap on a touch screen. */
+  .pextra { display: none; grid-column: 1 / -1; margin-top: 2px; color: var(--oc-muted); font: 11px/1.35 var(--oc-mono); white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
+  .revealed .pextra { display: block; }
+  .revealed .pdetail { white-space: normal; overflow-wrap: anywhere; }
+  /* On a notched phone the last line stays above the home indicator; elsewhere the inset is 0. */
+  #root { padding-bottom: calc(20px + var(--safe-bottom, 0px)); }
+  /* A finger: rows and buttons big enough to hit. */
+  @media (pointer: coarse) {
+    .row, .group-head, .row.member, .group > .row, .group > .job-wrap > .row { min-height: 44px; }
+    .group-head { padding-top: 8px; padding-bottom: 4px; }
+    .job.open .pextra { display: block; }
+    .stop { min-height: 40px; min-width: 44px; padding: 0 8px; font-size: 12px; }
+    .stop:hover { color: var(--oc-muted); }
+    .stop.armed, .stop.armed:hover { color: var(--oc-error-text, var(--oc-error)); }
+    .port { position: relative; height: 26px; padding: 0 9px; font-size: 12px; }
+    .port::after { content: ''; position: absolute; inset: -7px -3px; }
+    /* A phone row is narrow: ports and name wrap instead of running into the numbers. */
+    .row.server .title-line { flex-wrap: wrap; row-gap: 8px; }
+    .row.server .pname.strong { flex: 0 1 auto; max-width: 100%; }
+  }
   [hidden] { display: none !important; }
 `;
 

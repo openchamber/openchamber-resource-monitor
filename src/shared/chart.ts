@@ -93,15 +93,37 @@ export const mountChart = (options: ChartOptions): ChartHandle => {
     hoverIndex = Math.min(values.length - 1, Math.max(0, index));
     drawHover();
   };
-  element.addEventListener('pointermove', (event) => {
-    pointerX = event.clientX;
-    hoverAt(event.clientX);
-  });
-  element.addEventListener('pointerleave', () => {
+  // A finger has no hover: a tap pins the label at that point, a sideways
+  // drag moves it, and a tap anywhere else lets it go. A mouse keeps hover.
+  let pinned = false;
+  const clear = (): void => {
+    pinned = false;
     pointerX = null;
     hoverIndex = null;
     drawHover();
+  };
+  element.addEventListener('pointerdown', (event) => {
+    // A mouse hovers; it never pins, and it releases a pin a finger left.
+    pinned = event.pointerType !== 'mouse';
+    pointerX = event.clientX;
+    hoverAt(event.clientX);
   });
+  element.addEventListener('pointermove', (event) => {
+    if (event.pointerType === 'mouse') pinned = false;
+    else if (!pinned) return;
+    pointerX = event.clientX;
+    hoverAt(event.clientX);
+  });
+  element.addEventListener('pointerleave', (event) => {
+    // The finger lifting is a leave too; the label it pinned stays.
+    if (pinned && event.pointerType !== 'mouse') return;
+    clear();
+  });
+  // A gesture the browser took over (a vertical scroll) pins nothing.
+  element.addEventListener('pointercancel', clear);
+  document.addEventListener('pointerdown', (event) => {
+    if (pinned && !(event.target instanceof Node && element.contains(event.target))) clear();
+  }, true);
 
   const update = (nextValues: readonly number[], nextMax: number): void => {
     values = nextValues;
